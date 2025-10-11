@@ -1,6 +1,5 @@
 ﻿using api_articulos.Models;
-using dominio;
-using negocio;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,6 +7,8 @@ using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Web.Http;
+using dominio;
+using negocio;
 
 namespace api_articulos.Controllers
 {
@@ -130,13 +131,49 @@ namespace api_articulos.Controllers
         }
 
         // PUT: api/Articulos/5
-        public void Put(int id, [FromBody]string value)
+        public void Put(int id, [FromBody] ArticuloDTO art)
         {
+            try
+            {
+                if (art == null)
+                    throw new ArgumentNullException(nameof(art), "El cuerpo de la solicitud no puede estar vacío.");
+
+                bool existiaImg = art.Imagenes != null && art.Imagenes.Any();
+
+                ArticuloNegocio negocio = new ArticuloNegocio();
+                Articulo nuevo = new Articulo();
+                nuevo.Codigo = art.Codigo;
+                nuevo.Nombre = art.Nombre;
+                nuevo.Descripcion = art.Descripcion;
+                nuevo.Marca = new Marca { IdMarca = negocio.ObtenerIdMarca(art.Marca) };
+                nuevo.Categoria = new Categoria { IDCategoria = negocio.ObtenerIdCategoria(art.Categoria) };
+
+                nuevo.Imagenes = new List<Imagen>();
+
+                if (art.Imagenes != null)
+                {
+                    foreach (var url in art.Imagenes)
+                    {
+                        nuevo.Imagenes.Add(new Imagen { urlImagen = url });
+                    }
+                }
+
+                nuevo.IdArticulo = id;
+
+                negocio.modificarArticulo(nuevo, nuevo.Imagenes, existiaImg);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error en PUT: {ex.Message}");
+            }
         }
+
 
         // DELETE: api/Articulos/5
         public void Delete(int id)
         {
+            ArticuloNegocio negocio = new ArticuloNegocio();
+            negocio.eliminarArticulo(id);
         }
     }
 }

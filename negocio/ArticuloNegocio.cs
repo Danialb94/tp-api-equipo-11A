@@ -15,10 +15,10 @@ namespace negocio
         public List<Articulo> listar()
 
         {
-            List<Articulo>lista = new List<Articulo>();
+            List<Articulo> lista = new List<Articulo>();
             AccesoDatos datos = new AccesoDatos();
             AccesoDatos datosIMG = new AccesoDatos();
-           
+
 
 
             try
@@ -30,31 +30,31 @@ namespace negocio
                     Articulo articulo = new Articulo();
                     articulo.IdArticulo = (int)datos.Lector["Id"];
                     if (!(datos.Lector["Codigo"] is DBNull))
-                    articulo.Codigo = (string)datos.Lector["Codigo"];
+                        articulo.Codigo = (string)datos.Lector["Codigo"];
                     if (!(datos.Lector["Nombre"] is DBNull))
-                    articulo.Nombre = (string)datos.Lector["Nombre"];
+                        articulo.Nombre = (string)datos.Lector["Nombre"];
                     if (!(datos.Lector["Descripcion"] is DBNull))
-                    articulo.Descripcion = (string)datos.Lector["Descripcion"];
+                        articulo.Descripcion = (string)datos.Lector["Descripcion"];
                     articulo.Marca = new Marca();
                     if (!(datos.Lector["Marca"] is DBNull))
-                    articulo.Marca.IdMarca = (int)datos.Lector["IdMarca"];
+                        articulo.Marca.IdMarca = (int)datos.Lector["IdMarca"];
                     articulo.Marca.Descripcion = (string)datos.Lector["Marca"];
                     articulo.Categoria = new Categoria();
                     articulo.Categoria.IDCategoria = (int)datos.Lector["IdCategoria"];
                     if (!(datos.Lector["Categoria"] is DBNull))
-                    articulo.Categoria.Descripcion = (string)datos.Lector["Categoria"];
+                        articulo.Categoria.Descripcion = (string)datos.Lector["Categoria"];
                     if (!(datos.Lector["Precio"] is DBNull))
-                    articulo.Precio = (decimal)datos.Lector["Precio"];
+                        articulo.Precio = (decimal)datos.Lector["Precio"];
 
-                    
+
                     //IMAGENES
-                        ImagenNegocio negocio = new ImagenNegocio();
+                    ImagenNegocio negocio = new ImagenNegocio();
                     if (negocio.listarXArticulo(articulo.IdArticulo) != null)
                     {
                         articulo.Imagenes = negocio.listarXArticulo(articulo.IdArticulo);
                     }
 
-                    
+
 
                     lista.Add(articulo);
                 }
@@ -66,12 +66,13 @@ namespace negocio
             {
                 throw ex;
             }
-            finally {
+            finally
+            {
                 datos.cerrarConexion();
 
             }
 
-       
+
         }
 
         public void agregar(Articulo nuevo, List<Imagen> listaImg)
@@ -164,7 +165,9 @@ namespace negocio
 
         public void eliminarArticulo(int id)
         {
-                AccesoDatos datos = new AccesoDatos();
+            if (id <= 0)
+                throw new ArgumentException("El ID del artículo no es válido.", nameof(id));
+            AccesoDatos datos = new AccesoDatos();
             try
             {
                 ImagenNegocio neg = new ImagenNegocio();
@@ -172,6 +175,7 @@ namespace negocio
                 datos.setearParametro("@id", id);
                 datos.ejecutarAccion();
                 neg.eliminarXArticulo(id);
+
             }
             catch (Exception ex)
             {
@@ -191,17 +195,18 @@ namespace negocio
             try
             {
                 string consulta = "SELECT Art.Id, Art.Codigo, Art.Nombre, Art.Descripcion,M.Descripcion AS Marca, C.Descripcion AS Categoria,Art.Precio, Art.IdMarca, Art.IdCategoria FROM ARTICULOS ART, MARCAS M, CATEGORIAS C WHERE Art.IdMarca = M.Id AND Art.IdCategoria = C.Id AND ";
-                if (campo == "Código") {
+                if (campo == "Código")
+                {
                     switch (criterio)
                     {
                         case "Comienza con":
-                            consulta += "Art.Codigo like '" + filtro+"%'";
+                            consulta += "Art.Codigo like '" + filtro + "%'";
                             break;
                         case "Termina con":
-                            consulta += "Art.Codigo like '%" + filtro+"'";
+                            consulta += "Art.Codigo like '%" + filtro + "'";
                             break;
                         default:
-                            consulta += "Art.Codigo like '%"+filtro+"%'";
+                            consulta += "Art.Codigo like '%" + filtro + "%'";
                             break;
                     }
                 }
@@ -249,7 +254,8 @@ namespace negocio
                             consulta += "C.Descripcion like '%" + filtro + "%'";
                             break;
                     }
-                }else if (campo == "Precio")
+                }
+                else if (campo == "Precio")
                 {
                     switch (criterio)
                     {
@@ -279,8 +285,8 @@ namespace negocio
                             break;
                     }
                 }
-                    datos.setearConsulta(consulta);
-                    datos.ejecutarLectura();
+                datos.setearConsulta(consulta);
+                datos.ejecutarLectura();
 
                 while (datos.Lector.Read())
                 {
@@ -302,7 +308,7 @@ namespace negocio
                         articulo.Categoria.Descripcion = (string)datos.Lector["Categoria"];
                     if (!(datos.Lector["Precio"] is DBNull))
                         articulo.Precio = (decimal)datos.Lector["Precio"];
-                   
+
                     ImagenNegocio negocio = new ImagenNegocio();
                     if (negocio.listarXArticulo(articulo.IdArticulo) != null)
                     {
@@ -338,7 +344,7 @@ namespace negocio
                 }
                 return false;
             }
-            catch
+            catch (Exception ex)
             {
                 throw;
             }
@@ -347,6 +353,64 @@ namespace negocio
                 datos.cerrarConexion();
             }
         }
-    }
 
+        public int ObtenerIdMarca(string descripcion)
+        {
+            AccesoDatos datos = new AccesoDatos();
+            try
+            {
+                datos.setearConsulta("SELECT Id FROM MARCAS WHERE Descripcion = @descripcion");
+                datos.setearParametro("@descripcion", descripcion);
+                datos.ejecutarLectura();
+
+                if (datos.Lector.Read())
+                {
+                    return (int)datos.Lector["Id"];
+                }
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                datos.cerrarConexion();
+            }
+
+        }
+
+        public int ObtenerIdCategoria(string descripcion)
+        {
+            AccesoDatos datos = new AccesoDatos();
+            try
+            {
+                datos.setearConsulta("SELECT Id FROM CATEGORIAS WHERE Descripcion = @descripcion");
+                datos.setearParametro("@descripcion", descripcion);
+                datos.ejecutarLectura();
+
+                if (datos.Lector.Read())
+                {
+                    return (int)datos.Lector["Id"];
+                }
+
+                
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                datos.cerrarConexion();
+            }
+        }
+
+
+    }
 }
+
+
+
+
