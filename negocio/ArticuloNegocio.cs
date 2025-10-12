@@ -354,6 +354,30 @@ namespace negocio
             }
         }
 
+        public bool existeArticulo(int id)
+        {
+            AccesoDatos datos = new AccesoDatos();
+            try
+            {
+                datos.setearConsulta("SELECT COUNT(*) AS Cantidad FROM ARTICULOS WHERE id = @id");
+                datos.setearParametro("@id", id);
+                datos.ejecutarLectura();
+                if (datos.Lector.Read())
+                {
+                    return (int)datos.Lector["Cantidad"] > 0;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+            finally
+            {
+                datos.cerrarConexion();
+            }
+        }
+
         public int ObtenerIdMarca(string descripcion)
         {
             AccesoDatos datos = new AccesoDatos();

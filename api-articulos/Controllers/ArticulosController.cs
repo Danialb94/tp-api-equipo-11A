@@ -9,6 +9,7 @@ using System.Security.Cryptography;
 using System.Web.Http;
 using dominio;
 using negocio;
+using System.Security.Cryptography.X509Certificates;
 
 namespace api_articulos.Controllers
 {
@@ -45,9 +46,41 @@ namespace api_articulos.Controllers
 
         }
         // GET: api/Articulos/5
-        public string Get(int id)
+        public IHttpActionResult Get(int id)
         {
-            return "value";
+            if (id < 0) return BadRequest("El valor para ID es incorrecto.");
+            try
+            {
+                ArticuloNegocio negArticulo = new ArticuloNegocio();
+                if (!negArticulo.existeArticulo(id)) return BadRequest("No existe un artículo con ese ID");
+
+                Articulo seleccionado = new Articulo();
+                List<Articulo> lista = new List<Articulo>();
+                lista = negArticulo.listar();
+                seleccionado = lista.Find(x => x.IdArticulo == id);
+                if (seleccionado == null) return NotFound();
+
+                ArticuloDTO articulo = new ArticuloDTO();
+                articulo.Id = seleccionado.IdArticulo;
+                articulo.Nombre = seleccionado.Nombre;
+                articulo.Descripcion = seleccionado.Descripcion;
+                articulo.Marca = seleccionado.Marca.Descripcion;
+                articulo.Categoria = seleccionado.Categoria.Descripcion;
+                articulo.Precio = seleccionado.Precio;
+                if (seleccionado.Imagenes != null)
+                {
+                    articulo.Imagenes = new List<string>();
+                    for (int i = 0; i < seleccionado.Imagenes.Count; i++)
+                    {
+                        articulo.Imagenes.Add(seleccionado.Imagenes[i].urlImagen);
+                    }
+                }
+                return Ok(articulo);
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex);
+            }
         }
 
         // POST: api/Articulos
@@ -71,40 +104,13 @@ namespace api_articulos.Controllers
                 articulo.Precio = nuevoArticulo.Precio;
 
                 //Obtengo el Id de la Marca desde la base de datos usando su descripción
-                AccesoDatos datos = new AccesoDatos();
-                datos.setearConsulta("SELECT Id FROM MARCAS WHERE Descripcion = @descripcion");
-                datos.setearParametro("@descripcion", nuevoArticulo.Marca);
-                datos.ejecutarLectura();
-
-                if (datos.Lector.Read())
-                {
-                    articulo.Marca = new Marca();
-                    articulo.Marca.IdMarca = (int)datos.Lector["Id"];
-                    articulo.Marca.Descripcion = nuevoArticulo.Marca;
-                }
-                else
-                {
-                    return BadRequest("La marca indicada no existe en la base de datos. ");
-                }
-                datos.cerrarConexion();
+                ArticuloNegocio negocio = new ArticuloNegocio();
+                articulo.Marca = new Marca();
+                articulo.Marca.IdMarca = negocio.ObtenerIdMarca(nuevoArticulo.Marca);
 
                 //Hago lo mismo con la Categoría
-                datos = new AccesoDatos();
-                datos.setearConsulta("SELECT Id FROM CATEGORIAS WHERE Descripcion = @descripcion");
-                datos.setearParametro("@descripcion", nuevoArticulo.Categoria);
-                datos.ejecutarLectura();
-
-                if (datos.Lector.Read())
-                {
-                    articulo.Categoria = new Categoria();
-                    articulo.Categoria.IDCategoria = (int)datos.Lector["Id"];
-                    articulo.Categoria.Descripcion = nuevoArticulo.Categoria;
-                }
-                else
-                {
-                    return BadRequest("La categoría indicada no existe en la base de datos.");
-                }
-                datos.cerrarConexion();
+                articulo.Categoria = new Categoria();
+                articulo.Categoria.IDCategoria = negocio.ObtenerIdCategoria(nuevoArticulo.Categoria);
 
                 //Creo la lista de imágenes
                 List<Imagen> listaImg = new List<Imagen>();
@@ -117,8 +123,6 @@ namespace api_articulos.Controllers
                         listaImg.Add(img);
                     }
                 }
-
-                ArticuloNegocio negocio = new ArticuloNegocio();
                 negocio.agregar(articulo, listaImg);
 
                 return Ok("Producto agregado correctamente.");
