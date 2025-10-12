@@ -1,15 +1,15 @@
 ﻿using api_articulos.Models;
-
+using dominio;
+using negocio;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
-using System.Web.Http;
-using dominio;
-using negocio;
 using System.Security.Cryptography.X509Certificates;
+using System.Security.Policy;
+using System.Web.Http;
 
 namespace api_articulos.Controllers
 {
@@ -135,49 +135,125 @@ namespace api_articulos.Controllers
         }
 
         // PUT: api/Articulos/5
-        public void Put(int id, [FromBody] ArticuloDTO art)
+        [HttpPut]
+        
+        public IHttpActionResult Put(int id, [FromBody] ArticuloDTO art)
         {
             try
             {
                 if (art == null)
-                    throw new ArgumentNullException(nameof(art), "El cuerpo de la solicitud no puede estar vacío.");
+                    return BadRequest("El ID del artículo no es válido.");
+
+                if (id <= 0)
+                    return BadRequest("El ID del artículo no es válido.");
+
+                ArticuloNegocio negocio = new ArticuloNegocio();
+
+                bool articuloExistente = negocio.existeArticulo(id);
+                if (!articuloExistente)
+                    return BadRequest("El artículo no existe");
 
                 bool existiaImg = art.Imagenes != null && art.Imagenes.Any();
 
-                ArticuloNegocio negocio = new ArticuloNegocio();
                 Articulo nuevo = new Articulo();
+                nuevo.Imagenes = new List<Imagen>();
+
                 nuevo.Codigo = art.Codigo;
                 nuevo.Nombre = art.Nombre;
                 nuevo.Descripcion = art.Descripcion;
-                nuevo.Marca = new Marca { IdMarca = negocio.ObtenerIdMarca(art.Marca) };
-                nuevo.Categoria = new Categoria { IDCategoria = negocio.ObtenerIdCategoria(art.Categoria) };
+                nuevo.Precio = art.Precio;
 
-                nuevo.Imagenes = new List<Imagen>();
+                if (string.IsNullOrWhiteSpace(art.Marca))
+                    return BadRequest("La marca no puede estar vacía.");
+                MarcaNegocio negMarca = new MarcaNegocio();
+                
+
+                int idMarca;
+                if (int.TryParse(art.Marca, out idMarca))
+                {
+                    bool marcaExistente = negMarca.ExisteIdMarca(idMarca.ToString());
+                    if (!marcaExistente)
+                        return BadRequest("La marca especificada no existe.");
+                    nuevo.Marca = new Marca { IdMarca = idMarca };
+                }
+                else
+                {
+                    bool marcaExistente = negMarca.ExisteMarca(art.Marca);
+                    if (!marcaExistente)
+                        return BadRequest("La marca especificada no existe");
+                    nuevo.Marca = new Marca { IdMarca = negocio.ObtenerIdMarca(art.Marca) };
+                }
+
+                if (string.IsNullOrWhiteSpace(art.Categoria))
+                    return BadRequest("La categoría no puede estar vacía");
+
+
+                CategoriaNegocio catNeg = new CategoriaNegocio();
+                int idCategoria;
+                if (int.TryParse(art.Categoria, out idCategoria))
+                {
+                    bool existeCat = catNeg.ExisteIdCategoria(idCategoria.ToString());
+                    if (!existeCat)
+                        return BadRequest("La categoría especificada no existe");
+                    nuevo.Categoria = new Categoria { IDCategoria = idCategoria };
+
+                }
+
+                else
+                {
+                    bool existeCat = catNeg.ExisteCategoria(art.Categoria);
+                    if (!existeCat)
+                        return BadRequest("La categoría especificada no existe");
+                    nuevo.Categoria = new Categoria { IDCategoria = negocio.ObtenerIdCategoria(art.Categoria) };
+                }
 
                 if (art.Imagenes != null)
                 {
                     foreach (var url in art.Imagenes)
                     {
-                        nuevo.Imagenes.Add(new Imagen { urlImagen = url });
+                        if (!string.IsNullOrWhiteSpace(url))
+                            nuevo.Imagenes.Add(new Imagen { urlImagen = url });
                     }
                 }
 
                 nuevo.IdArticulo = id;
 
                 negocio.modificarArticulo(nuevo, nuevo.Imagenes, existiaImg);
+
+                return Ok("Artículo modificado correctamente.");
             }
+            
             catch (Exception ex)
             {
-                Console.WriteLine($"Error en PUT: {ex.Message}");
+                return BadRequest("No se pudo realizar la petición");
             }
         }
 
 
         // DELETE: api/Articulos/5
-        public void Delete(int id)
+        [HttpDelete]
+        public IHttpActionResult Delete(int id)
         {
-            ArticuloNegocio negocio = new ArticuloNegocio();
-            negocio.eliminarArticulo(id);
+            if (id <= 0)
+                return BadRequest("El ID del artículo no es válido.");
+
+            try
+            {
+                ArticuloNegocio negocio = new ArticuloNegocio();
+
+                bool existeArt = negocio.existeArticulo(id);
+                if (existeArt == false)
+                {
+                    return BadRequest("No existe ese artículo");
+                }
+                negocio.eliminarArticulo(id);
+                return Ok("Artículo eliminado correctamente");
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex);
+            }
         }
+
     }
 }

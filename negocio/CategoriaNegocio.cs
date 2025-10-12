@@ -156,5 +156,34 @@ namespace negocio
 
             return existe;
         }
+
+        public bool ExisteIdCategoria(string Idcategoria)
+        {
+            bool existe = false;
+            AccesoDatos datos = new AccesoDatos();
+
+            try
+            {
+                datos.setearConsulta("SELECT COUNT(*) FROM Categorias WHERE Id = @IdCat");
+                datos.setearParametro("@IdCat", Idcategoria);
+                datos.ejecutarLectura();
+
+                if (datos.Lector.Read())
+                {
+                    int count = (int)datos.Lector[0];
+                    existe = count > 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                datos.cerrarConexion();
+            }
+
+            return existe;
+        }
     }
 }

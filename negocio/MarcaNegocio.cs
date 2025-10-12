@@ -148,5 +148,32 @@ namespace negocio
                 datos.cerrarConexion();
             }
         }
+
+        public bool ExisteIdMarca(string Idmarca)
+        {
+            AccesoDatos datos = new AccesoDatos();
+            try
+            {
+                datos.setearConsulta("SELECT COUNT(*) FROM Marcas WHERE Id = @IdMarca");
+                datos.setearParametro("@IdMarca", Idmarca);
+                datos.ejecutarLectura();
+
+                int count = 0;
+                if (datos.Lector.Read())
+                {
+                    count = (int)datos.Lector[0];
+                }
+
+                return count > 0;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                datos.cerrarConexion();
+            }
+        }
     }
 }
