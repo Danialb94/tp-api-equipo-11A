@@ -1,5 +1,6 @@
 ﻿using api_articulos.Models;
 using dominio;
+using Microsoft.Ajax.Utilities;
 using negocio;
 using System;
 using System.Collections.Generic;
@@ -10,11 +11,27 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Policy;
 using System.Web.Http;
+using System.Web.UI.WebControls.WebParts;
 
 namespace api_articulos.Controllers
 {
     public class ArticulosController : ApiController
     {
+        private bool ExistenLetras(string cadena)
+        {
+            foreach (char caracter in cadena)
+            {
+                if (!char.IsDigit(caracter))
+                    return true;
+            }
+            return false;
+        }
+        bool EsUrlValida(string url)
+        {
+            return Uri.TryCreate(url, UriKind.Absolute, out Uri uriResult)
+                && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
+        }
+
         // GET: api/Articulos
         public IEnumerable<ArticuloDTO> Get()
         {
@@ -45,10 +62,12 @@ namespace api_articulos.Controllers
             }
 
         }
+
         // GET: api/Articulos/5
         public IHttpActionResult Get(int id)
         {
             if (id < 0) return BadRequest("El valor para ID es incorrecto.");
+
             try
             {
                 ArticuloNegocio negArticulo = new ArticuloNegocio();
@@ -84,17 +103,21 @@ namespace api_articulos.Controllers
         }
 
         // POST: api/Articulos
-        public IHttpActionResult Post([FromBody] ArticuloDTO nuevoArticulo)
+        public IHttpActionResult Post([FromBody] ArticuloDTOPost nuevoArticulo)
         {
             try
             {
                 // Valido que el cliente me haya mandado datos.
                 // Si el objeto "nuevoArticulo" está vacío (null),
                 // devuelvo un mensaje de error al cliente.
-                if (nuevoArticulo == null)
+                if (nuevoArticulo == null) return BadRequest("No se enviaron datos del producto.");
+                if (string.IsNullOrWhiteSpace(nuevoArticulo.Nombre) || string.IsNullOrWhiteSpace(nuevoArticulo.Codigo)) return BadRequest("Hay datos vacíos.");
+                if (!ExistenLetras(nuevoArticulo.Nombre)) return BadRequest("El nombre no pueden ser solo números.");
+                if (!string.IsNullOrWhiteSpace(nuevoArticulo.Descripcion))
                 {
-                    return BadRequest("No se enviaron datos del producto.");
+                    if (!ExistenLetras(nuevoArticulo.Descripcion)) return BadRequest("La descripcion no pueden ser solo números.");
                 }
+                if (nuevoArticulo.Precio < 1) return BadRequest("El precio no puede ser menor a un peso >:c");
 
                 // Creo un objeto del dominio(Articulo)
                 Articulo articulo = new Articulo();
@@ -105,12 +128,50 @@ namespace api_articulos.Controllers
 
                 //Obtengo el Id de la Marca desde la base de datos usando su descripción
                 ArticuloNegocio negocio = new ArticuloNegocio();
+                MarcaNegocio marcaNeg = new MarcaNegocio();
+
+
+                //Marca
                 articulo.Marca = new Marca();
-                articulo.Marca.IdMarca = negocio.ObtenerIdMarca(nuevoArticulo.Marca);
+                if (string.IsNullOrWhiteSpace(nuevoArticulo.Marca)) return BadRequest("La marca no puede estar vacía.");
+                MarcaNegocio negMarca = new MarcaNegocio();
+                int idMarca;
+                if (int.TryParse(nuevoArticulo.Marca, out idMarca))
+                {
+                    bool marcaExistente = negMarca.ExisteIdMarca(idMarca.ToString());
+                    if (!marcaExistente)
+                        return BadRequest("La marca especificada no existe.");
+                    articulo.Marca = new Marca { IdMarca = idMarca };
+                }
+                else
+                {
+                    bool marcaExistente = negMarca.ExisteMarca(nuevoArticulo.Marca);
+                    if (!marcaExistente)
+                        return BadRequest("La marca especificada no existe");
+                    articulo.Marca = new Marca { IdMarca = negocio.ObtenerIdMarca(nuevoArticulo.Marca) };
+                }
 
                 //Hago lo mismo con la Categoría
+                CategoriaNegocio cartegNeg = new CategoriaNegocio();
                 articulo.Categoria = new Categoria();
-                articulo.Categoria.IDCategoria = negocio.ObtenerIdCategoria(nuevoArticulo.Categoria);
+                if (string.IsNullOrWhiteSpace(nuevoArticulo.Categoria)) return BadRequest("La categoría no puede estar vacía");
+                CategoriaNegocio catNeg = new CategoriaNegocio();
+                int idCategoria;
+                if (int.TryParse(nuevoArticulo.Categoria, out idCategoria))
+                {
+                    bool existeCat = catNeg.ExisteIdCategoria(idCategoria.ToString());
+                    if (!existeCat)
+                        return BadRequest("La categoría especificada no existe");
+                    articulo.Categoria = new Categoria { IDCategoria = idCategoria };
+
+                }
+                else
+                {
+                    bool existeCat = catNeg.ExisteCategoria(nuevoArticulo.Categoria);
+                    if (!existeCat)
+                        return BadRequest("La categoría especificada no existe");
+                    articulo.Categoria = new Categoria { IDCategoria = negocio.ObtenerIdCategoria(nuevoArticulo.Categoria) };
+                }
 
                 //Creo la lista de imágenes
                 List<Imagen> listaImg = new List<Imagen>();
@@ -118,11 +179,17 @@ namespace api_articulos.Controllers
                 {
                     foreach (var url in nuevoArticulo.Imagenes)
                     {
-                        Imagen img = new Imagen();
-                        img.urlImagen = url;
-                        listaImg.Add(img);
+                        if (EsUrlValida(url))
+                        {
+                            Imagen img = new Imagen();
+                            img.urlImagen = url;
+                            listaImg.Add(img);
+                        }
+                        else if (!string.IsNullOrWhiteSpace(url)) return BadRequest("La imagen no tiene el formato requerido.");
+
                     }
                 }
+
                 negocio.agregar(articulo, listaImg);
 
                 return Ok("Producto agregado correctamente.");
@@ -136,22 +203,23 @@ namespace api_articulos.Controllers
 
         // PUT: api/Articulos/5
         [HttpPut]
-        
-        public IHttpActionResult Put(int id, [FromBody] ArticuloDTO art)
+
+        public IHttpActionResult Put(int id, [FromBody] ArticuloDTOPost art)
         {
             try
             {
-                if (art == null)
-                    return BadRequest("El ID del artículo no es válido.");
-
-                if (id <= 0)
-                    return BadRequest("El ID del artículo no es válido.");
+                if (art == null) return BadRequest("El ID del artículo no es válido.");
+                if (id <= 0) return BadRequest("El ID del artículo no es válido.");
+                if (string.IsNullOrWhiteSpace(art.Nombre) || string.IsNullOrWhiteSpace(art.Codigo)) return BadRequest("Hay datos vacíos");
+                if (!ExistenLetras(art.Nombre)) return BadRequest("El nombre no pueden ser solo números.");
+                if (!string.IsNullOrWhiteSpace(art.Descripcion))
+                {
+                    if (!ExistenLetras(art.Descripcion)) return BadRequest("La descripcion no pueden ser solo números.");
+                }
+                if (art.Precio < 1) return BadRequest("El precio no puede ser menor a un peso >:c");
 
                 ArticuloNegocio negocio = new ArticuloNegocio();
-
-                bool articuloExistente = negocio.existeArticulo(id);
-                if (!articuloExistente)
-                    return BadRequest("El artículo no existe");
+                if (!negocio.existeArticulo(id)) return BadRequest("El artículo no existe");
 
                 bool existiaImg = art.Imagenes != null && art.Imagenes.Any();
 
@@ -163,11 +231,10 @@ namespace api_articulos.Controllers
                 nuevo.Descripcion = art.Descripcion;
                 nuevo.Precio = art.Precio;
 
-                if (string.IsNullOrWhiteSpace(art.Marca))
-                    return BadRequest("La marca no puede estar vacía.");
-                MarcaNegocio negMarca = new MarcaNegocio();
-                
 
+                //Marca
+                if (string.IsNullOrWhiteSpace(art.Marca)) return BadRequest("La marca no puede estar vacía.");
+                MarcaNegocio negMarca = new MarcaNegocio();
                 int idMarca;
                 if (int.TryParse(art.Marca, out idMarca))
                 {
@@ -184,10 +251,9 @@ namespace api_articulos.Controllers
                     nuevo.Marca = new Marca { IdMarca = negocio.ObtenerIdMarca(art.Marca) };
                 }
 
-                if (string.IsNullOrWhiteSpace(art.Categoria))
-                    return BadRequest("La categoría no puede estar vacía");
 
-
+                //Categoría
+                if (string.IsNullOrWhiteSpace(art.Categoria)) return BadRequest("La categoría no puede estar vacía");
                 CategoriaNegocio catNeg = new CategoriaNegocio();
                 int idCategoria;
                 if (int.TryParse(art.Categoria, out idCategoria))
@@ -198,7 +264,6 @@ namespace api_articulos.Controllers
                     nuevo.Categoria = new Categoria { IDCategoria = idCategoria };
 
                 }
-
                 else
                 {
                     bool existeCat = catNeg.ExisteCategoria(art.Categoria);
@@ -211,8 +276,11 @@ namespace api_articulos.Controllers
                 {
                     foreach (var url in art.Imagenes)
                     {
-                        if (!string.IsNullOrWhiteSpace(url))
+                        if (EsUrlValida(url))
+                        {
                             nuevo.Imagenes.Add(new Imagen { urlImagen = url });
+                        }
+                        else if (!string.IsNullOrWhiteSpace(url)) return BadRequest("La imagen no tiene el formato requerido.");
                     }
                 }
 
@@ -222,7 +290,7 @@ namespace api_articulos.Controllers
 
                 return Ok("Artículo modificado correctamente.");
             }
-            
+
             catch (Exception ex)
             {
                 return BadRequest("No se pudo realizar la petición");
