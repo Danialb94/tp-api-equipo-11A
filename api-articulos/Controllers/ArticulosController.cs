@@ -33,14 +33,14 @@ namespace api_articulos.Controllers
         }
 
         // GET: api/Articulos
-        public IEnumerable<ArticuloDTO> Get()
+        public IEnumerable<ArticuloDTOconID> Get()
         {
             try
             {
                 ArticuloNegocio negocio = new ArticuloNegocio();
                 List<Articulo> listaArticulos = negocio.listar();
 
-                List<ArticuloDTO> listaDTO = listaArticulos.Select(a => new ArticuloDTO
+                List<ArticuloDTOconID> listaDTO = listaArticulos.Select(a => new ArticuloDTOconID
                 {
                     Id = a.IdArticulo,
                     Nombre = a.Nombre,
@@ -79,7 +79,7 @@ namespace api_articulos.Controllers
                 seleccionado = lista.Find(x => x.IdArticulo == id);
                 if (seleccionado == null) return NotFound();
 
-                ArticuloDTO articulo = new ArticuloDTO();
+                ArticuloDTOconID articulo = new ArticuloDTOconID();
                 articulo.Id = seleccionado.IdArticulo;
                 articulo.Nombre = seleccionado.Nombre;
                 articulo.Descripcion = seleccionado.Descripcion;
@@ -103,7 +103,7 @@ namespace api_articulos.Controllers
         }
 
         // POST: api/Articulos
-        public IHttpActionResult Post([FromBody] ArticuloDTOPost nuevoArticulo)
+        public IHttpActionResult Post([FromBody] ArticuloDTO nuevoArticulo)
         {
             try
             {
@@ -204,12 +204,11 @@ namespace api_articulos.Controllers
         // PUT: api/Articulos/5
         [HttpPut]
 
-        public IHttpActionResult Put(int id, [FromBody] ArticuloDTOPost art)
+        public IHttpActionResult Put(int id, [FromBody] ArticuloDTOPut art)
         {
             try
             {
                 if (art == null) return BadRequest("El ID del artículo no es válido.");
-                if (id <= 0) return BadRequest("El ID del artículo no es válido.");
                 if (string.IsNullOrWhiteSpace(art.Nombre) || string.IsNullOrWhiteSpace(art.Codigo)) return BadRequest("Hay datos vacíos");
                 if (!ExistenLetras(art.Nombre)) return BadRequest("El nombre no pueden ser solo números.");
                 if (!string.IsNullOrWhiteSpace(art.Descripcion))
@@ -218,13 +217,12 @@ namespace api_articulos.Controllers
                 }
                 if (art.Precio < 1) return BadRequest("El precio no puede ser menor a un peso >:c");
 
+                if (id <= 0) return BadRequest("El ID del artículo no es válido.");
+
                 ArticuloNegocio negocio = new ArticuloNegocio();
                 if (!negocio.existeArticulo(id)) return BadRequest("El artículo no existe");
 
-                bool existiaImg = art.Imagenes != null && art.Imagenes.Any();
-
                 Articulo nuevo = new Articulo();
-                nuevo.Imagenes = new List<Imagen>();
 
                 nuevo.Codigo = art.Codigo;
                 nuevo.Nombre = art.Nombre;
@@ -272,21 +270,8 @@ namespace api_articulos.Controllers
                     nuevo.Categoria = new Categoria { IDCategoria = negocio.ObtenerIdCategoria(art.Categoria) };
                 }
 
-                if (art.Imagenes != null)
-                {
-                    foreach (var url in art.Imagenes)
-                    {
-                        if (EsUrlValida(url))
-                        {
-                            nuevo.Imagenes.Add(new Imagen { urlImagen = url });
-                        }
-                        else if (!string.IsNullOrWhiteSpace(url)) return BadRequest("La imagen no tiene el formato requerido.");
-                    }
-                }
-
                 nuevo.IdArticulo = id;
-
-                negocio.modificarArticulo(nuevo, nuevo.Imagenes, existiaImg);
+                negocio.modificarArticulo(nuevo);
 
                 return Ok("Artículo modificado correctamente.");
             }

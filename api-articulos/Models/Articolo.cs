@@ -5,7 +5,7 @@ using System.Web;
 
 namespace api_articulos.Models
 {
-    public class ArticuloDTO
+    public class ArticuloDTOconID
     {
         public int Id { get; set; }
         public string Nombre { get; set; }
@@ -17,7 +17,7 @@ namespace api_articulos.Models
         public List<string> Imagenes { get; set; }
     }
 
-    public class ArticuloDTOPost
+    public class ArticuloDTO
     {
         public string Nombre { get; set; }
         public string Codigo { get; set; }
@@ -27,4 +27,15 @@ namespace api_articulos.Models
         public decimal Precio { get; set; }
         public List<string> Imagenes { get; set; }
     }
+
+    public class ArticuloDTOPut
+    {
+        public string Nombre { get; set; }
+        public string Codigo { get; set; }
+        public string Descripcion { get; set; }
+        public string Marca { get; set; }
+        public string Categoria { get; set; }
+        public decimal Precio { get; set; }
+    }
+
 }

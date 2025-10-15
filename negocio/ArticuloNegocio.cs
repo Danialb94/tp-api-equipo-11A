@@ -162,6 +162,36 @@ namespace negocio
 
         }
 
+        public void modificarArticulo(Articulo articulo)
+        {
+            AccesoDatos datos = new AccesoDatos();
+            try
+            {
+                //FALTA AGREGAR LA MODIFICACIÓN PARA URLIMAGEN
+                datos.setearConsulta("update articulos set Codigo = @codigo, Nombre = @nombre, Descripcion = @descripcion, IdMarca = @idMarca, IdCategoria = @idCategoria, Precio = @precio where Id = @id");
+                datos.setearParametro("@codigo", articulo.Codigo);
+                datos.setearParametro("@nombre", articulo.Nombre);
+                datos.setearParametro("@descripcion", articulo.Descripcion);
+                datos.setearParametro("@idMarca", articulo.Marca.IdMarca);
+                datos.setearParametro("@idCategoria", articulo.Categoria.IDCategoria);
+                datos.setearParametro("@precio", articulo.Precio);
+                datos.setearParametro("@id", articulo.IdArticulo);
+
+                datos.ejecutarAccion();
+            }
+            catch (Exception ex)
+            {
+
+                throw ex;
+            }
+            finally
+            {
+                datos.cerrarConexion();
+
+            }
+
+        }
+
 
         public void eliminarArticulo(int id)
         {
